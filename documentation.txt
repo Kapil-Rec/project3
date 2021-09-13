@@ -1,0 +1,15 @@
+first of all open folder AIP Assessment and then write four command one by one 
+npm i express
+npm i mongoose
+npm i multer
+npm i body-parser
+
+and then you run the server file command: node server.js
+
+then open the postman and writing 
+1.if you are uploadImage image than write command on postman:localhost:8001/uploadImage
+(in postman some setting choose method post, choose body , choose form data and JSON formate)
+
+2. if you are read the database then choose method get and write-: localhost:8001/read 
+
+3. if you are delete all record form data base then choose method get and write-: localhost:8001/delete
