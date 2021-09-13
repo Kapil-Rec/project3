@@ -1,4 +1,4 @@
-first of all open folder AIP Assessment and then write four command one by one 
+first of all open folder AIP Assessment in VS code Editor or etc and then write four command one by one 
 npm i express
 npm i mongoose
 npm i multer
