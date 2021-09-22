@@ -4,10 +4,13 @@ const mongoose = require('mongoose');
 const path = require('path');
 const multer = require('multer');
 const bodyParser = require('body-parser');
+const fs = require('fs');
+const evn = require('./env');
 app.use(bodyParser.json())
 const dbName = "TestDataBase";
 
-// Data Base Connection 
+/////////////////////---------DATA BASE CONNECION  -------------///////////////////////
+
 mongoose.connect(`mongodb://localhost:27017/${dbName}`, { useNewUrlParser: true }, (error, result) => {
     if (error) {
         console.log("Not Connected")
@@ -15,7 +18,8 @@ mongoose.connect(`mongodb://localhost:27017/${dbName}`, { useNewUrlParser: true 
         console.log("Database Connected")
     }
 });
-// Schema code Desing
+/////////////////////--------- SCHEMA DESING -------------///////////////////////
+
 const schema = mongoose.Schema;
 const apiSchema = new schema({
     name: String,
@@ -24,8 +28,8 @@ const apiSchema = new schema({
 })
 apiModel = mongoose.model('api', apiSchema);
 
+/////////////////////--------- IMAGE UPLOAD CODE -------------///////////////////////
 
-// create Api
 const imageStorage = multer.diskStorage({
     // Destination to store image     
     destination: 'images',
@@ -42,23 +46,22 @@ const imageUpload = multer({
         fileSize: 1000000 // 1000000 Bytes = 1 MB
     },
     fileFilter(req, file, cb) {
-        if (!file.originalname.match(/\.(png|jpg|jfif)$/)) {
+        if (!file.originalname.match(/\.(png|jpg)$/)) {
             // upload only png and jpg format
             return cb(new Error('Please upload a Image'))
         }
         cb(undefined, true)
     }
 })
-// For Single image upload
-app.post('/uploadImage', imageUpload.single('image'), (req, res) => {
+/////////////////////---------ADD API -------------///////////////////////
 
+app.post('/add', imageUpload.single('image'), (req, res) => {
     console.log(req.file);
     apiModel.findOne({ name: req.body.name }, (findErr, findRes) => {
         if (findErr) {
             return res.send({ responseCode: 501, responseMessage: "Internal Server Error" });
         } else if (findRes) {
-            return res.send({ responseCode: 404, responseMessage: "Already Exist" });
-
+            return res.send({ responseCode: 409, responseMessage: "Already Exist" });
         } else {
             const obj = {
                 name: req.body.name,
@@ -69,15 +72,15 @@ app.post('/uploadImage', imageUpload.single('image'), (req, res) => {
                 if (saveErr) {
                     return res.send({ responseMessage: "Save Error" })
                 } else {
-                    return res.send({ responseCode: 200, responseMessage: "Movie Is Uploaded Successfully", responseResult: saveRes })
+                    return res.send({ responseCode: 200, responseMessage: "Image Is Uploaded Successfully", responseResult: saveRes })
                 }
             })
-
         }
     })
 })
 
-// read data 
+/////////////////////---------DATA READ API -------------///////////////////////
+
 app.get('/read', (req, res) => {
     apiModel.find((findErr, findRes) => {
         if (findErr) {
@@ -87,18 +90,63 @@ app.get('/read', (req, res) => {
         }
     })
 })
-// delete all Api
-app.get('/delete', (req, res) => {
-    apiModel.remove((delErr, delRes) => {
-        if (delErr) {
-            return res.send({ responseMessage: "Internal server Error" })
+/////////////////////---------DELETE API BY ID -------------///////////////////////
+
+app.delete('/delete', (req, res) => {
+    apiModel.findOne({ _id: req.body._id }, (findErr, findRes) => {
+        if (findErr) {
+            return res.send({ responseMessage: "Internal error" });
+        } else if (!findRes) {
+            return res.send({ responseMessage: "Credancial not found" });
         } else {
-            return res.send({ responseCode: 200, responseMessage: "All record are Delete Successfully" })
+            const location = findRes.img;
+            console.log(location);
+            fs.unlinkSync(`${location}`)
+            apiModel.deleteOne({ _id: req.body._id }, (delErr, delRes) => {
+                console.log(delRes);
+                if (delErr) {
+                    return res.send({ responseMessage: "Internal server Error" })
+                } else {
+                    return res.send({ responseCode: 200, responseMessage: "Record Delete Successfully" })
+                }
+            })
         }
     })
-})
+});
+/////////////////////---------UPDATE API -------------///////////////////////
+app.put('/udpdateRecord', (req, res) => {
+    try {
+        apiModel.findOne({ _id: req.body._id }, (findErr, findRes) => {
+            if (findErr) {
+                return res.send({ responseMessage: "Internal server Error" })
+            } else if (!findRes) {
+                return res.send({ responseCode: 404, responseMessage: "Data not found" });
 
-// Server 
+            } else {
+                apiModel.findOne({ $and: [{ name: req.body.name }, { _id: { $ne: findRes._id } }] }, (Err, Res) => {
+                    if (Err) {
+                        return res.send({ responseCode: 500, responseMessage: "Internal Server Error" });
+                    } else if (Res) {
+                        if (Res.name == req.body.name) {
+                            return res.send({ responseCode: 409, responseMessage: "Creidancial Already exist" });
+                        }
+                    } else {
+                        apiModel.findByIdAndUpdate({ _id: findRes._id }, { $set: req.body }, (updateErr, updateRes) => {
+                            if (updateErr) {
+                                return res.send({ responseCode: 500, responseMessage: "Internal Error" });
+                            } else {
+                                return res.send({ responseCode: 200, responseMessage: "Data update Successfully" });
+                            }
+                        })
+                    }
+                })
+            }
+        })
+    } catch (error) {
+    }
+})
+/////////////////////---------SERVER CODE-------------///////////////////////
+
 var port = 8001;
 app.listen(port, (result, error) => {
     if (error) {
@@ -107,3 +155,4 @@ app.listen(port, (result, error) => {
         console.log(`Server is running on ${port}`);
     }
 })
+
